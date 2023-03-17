@@ -61,6 +61,7 @@ class Window:
         config.set('main', 'anchorY', str(self.anchors[1]))
         config.set('main', 'relX', str(self.relx_slider.get()))
         config.set('main', 'relY', str(self.rely_slider.get()))
+        config.set('main', 'scale', str(self.scaleMultiplier))
 
         with open('config.ini', 'w') as f:
             config.write(f)
@@ -71,6 +72,7 @@ class Window:
         self.anchors = [config.getint('main', 'anchorX'), config.getint('main', 'anchorY')]
         self.relx_slider.set(config.getint('main', 'relX'))
         self.rely_slider.set(config.getint('main', 'relY'))
+        self.scaleMultiplier = config.getfloat('main', 'scale')
 
     def relocate(self, event = None):
         w = self.relx_slider.get() / 100
@@ -95,12 +97,38 @@ class Window:
         self.anchors = [1, 1]
         self.relocate()
 
+    def resize(self, event = None):
+        self.scaleMultiplier = self.scale_slider.get() / 100
+        try:
+            if self.file.split('.')[-1] == 'gif':
+                assert(0)
+            thumb = Image.open(self.file)
+            w, h = int(thumb.width * self.scaleMultiplier), int(thumb.height * self.scaleMultiplier)
+            thumb = thumb.resize((int(w), int(h)))
+            tk_thumb = ImageTk.PhotoImage(thumb)
+            for widget in self.topFrame.winfo_children():
+                widget.destroy()
+            self.label = Label(self.topFrame, image=tk_thumb)
+            self.label.image = tk_thumb
+            self.label.pack()       
+        except:
+            try:
+                for widget in self.topFrame.winfo_children():
+                    widget.destroy()
+                video = VideoPlayer(self.topFrame, self.file, self.scaleMultiplier)
+            except Exception as e:
+                print(e)
+                pass
+        self.topFrame.update_idletasks()
+        self.relocate()
+
     def __init__(self) -> None:
         self.isDiscordActive = False
         self.rect = None
         self.topFrame = None
         self.hidden = False
         self.started = True
+        self.scaleMultiplier = 1
         
         self.window = Tk()
         self.window.title('-----')
@@ -138,21 +166,28 @@ class Window:
         self.button_SE = Button(self.window, text = "SE", command = self.SE)
         self.button_SE.grid(column = 4, row = 5, sticky=W) 
 
+        self.scale_label = Label(self.window, text='Scale (%)', background = "white")
+        self.scale_label.grid(row = 1, column=5) 
+        self.scale_slider = Scale(self.window, from_=100, to=0, orient=VERTICAL)
+        self.scale_slider.grid(row=2, column=5, rowspan=4) 
+        self.scale_slider.bind('<ButtonRelease>', self.resize)
+
         try:
             self.read()
             self.started = True
+            self.scale_slider.set(int(self.scaleMultiplier * 100))
         except Exception as e:
             print(e)
             self.file = None
             self.anchors = [1, 1]
             self.relx_slider.set(0)
             self.rely_slider.set(0)
+            self.scale_slider.set(100)
 
     def openFile(self):
         self.file = filedialog.askopenfilename(title='Select a file to display')
 
     def startPopup(self):
-        print(self.file)
         if self.topFrame != None:
             self.closePopup()
         self.started = True
@@ -165,22 +200,7 @@ class Window:
         self.topFrame.update()
         self.topFrame.bind('<FocusIn>', self.onPopupFocus)
 
-        try:
-            if self.file.split('.')[-1] == 'gif':
-                assert(0)
-            thumb = Image.open(self.file)
-            tk_thumb = ImageTk.PhotoImage(thumb)
-            label = Label(self.topFrame, image=tk_thumb)
-            label.image = tk_thumb
-            label.pack()
-            self.relocate()
-        except Exception as e:
-            print(e)
-            try:
-                video = VideoPlayer(self.topFrame, self.file)
-            except Exception as e:
-                print(e)
-                pass
+        self.resize()
 
     def onPopupFocus(self, event):
         self.isDiscordActive = True

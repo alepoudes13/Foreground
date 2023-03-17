@@ -3,12 +3,11 @@ from tkVideoPlayer import TkinterVideo
 import cv2
 
 class VideoPlayer:
-    def __init__(self, frame: tk.Frame, path, width = None, height = None):
-        if height == None or width == None:
-            vid = cv2.VideoCapture(path)
-            height = vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            width = vid.get(cv2.CAP_PROP_FRAME_WIDTH)
-        vid_frame = tk.Frame(frame, height=height, width=width)
+    def __init__(self, frame: tk.Frame, path, scale = 1):
+        vid = cv2.VideoCapture(path)
+        height = vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        width = vid.get(cv2.CAP_PROP_FRAME_WIDTH)
+        vid_frame = tk.Frame(frame, height=int(height * scale), width=int(width * scale))
         self.vid_player = TkinterVideo(vid_frame, keep_aspect=True)
         self.vid_player.place(relx=0, rely=0, relwidth=1, relheight=1)
         vid_frame.pack()
