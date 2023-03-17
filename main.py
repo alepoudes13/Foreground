@@ -4,6 +4,9 @@ import threading
 from sys import exit
 loop = asyncio.get_event_loop()
 
+from configparser import ConfigParser
+config = ConfigParser()
+config.read('config.ini')
 
 from tkinter import *
 from tkinter import filedialog
@@ -44,6 +47,31 @@ def CheckActiveWindow():
             window.hidden = True
 
 class Window:
+    def ex(self):
+        self.write()
+        exit()
+
+    def write(self):
+        try:
+            config.add_section('main')
+        except:
+            pass
+        config.set('main', 'file', self.file)
+        config.set('main', 'anchorX', str(self.anchors[0]))
+        config.set('main', 'anchorY', str(self.anchors[1]))
+        config.set('main', 'relX', str(self.relx_slider.get()))
+        config.set('main', 'relY', str(self.rely_slider.get()))
+
+        with open('config.ini', 'w') as f:
+            config.write(f)
+
+    def read(self):
+        file = config.get('main', 'file')
+        self.file = file
+        self.anchors = [config.getint('main', 'anchorX'), config.getint('main', 'anchorY')]
+        self.relx_slider.set(config.getint('main', 'relX'))
+        self.rely_slider.set(config.getint('main', 'relY'))
+
     def relocate(self, event = None):
         w = self.relx_slider.get() / 100
         h = self.rely_slider.get() / 100
@@ -69,22 +97,22 @@ class Window:
 
     def __init__(self) -> None:
         self.isDiscordActive = False
-        self.file = None
         self.rect = None
         self.topFrame = None
         self.hidden = False
-        self.started = False
-        self.anchors = [1, 1]
+        self.started = True
+        
         self.window = Tk()
         self.window.title('-----')
         self.window.config(background = "white")
+        self.window.protocol("WM_DELETE_WINDOW", self.ex)
         self.button_explore = Button(self.window, text = "Browse Files", command = self.openFile)
         self.button_explore.grid(column = 1, row = 1)  
         self.button_start = Button(self.window, text = "Start", command = self.startPopupBase)
         self.button_start.grid(column = 2, row = 1)
         self.button_stop = Button(self.window, text = "Stop", command = self.closePopupBase)
         self.button_stop.grid(column = 3, row = 1)  
-        self.button_exit = Button(self.window, text = "Exit program", command = exit)
+        self.button_exit = Button(self.window, text = "Exit program", command = self.ex)
         self.button_exit.grid(column = 4, row = 1) 
 
         self.relx_label = Label(self.window, text='RelX (%)', background = "white") 
@@ -110,10 +138,21 @@ class Window:
         self.button_SE = Button(self.window, text = "SE", command = self.SE)
         self.button_SE.grid(column = 4, row = 5, sticky=W) 
 
+        try:
+            self.read()
+            self.started = True
+        except Exception as e:
+            print(e)
+            self.file = None
+            self.anchors = [1, 1]
+            self.relx_slider.set(0)
+            self.rely_slider.set(0)
+
     def openFile(self):
         self.file = filedialog.askopenfilename(title='Select a file to display')
 
     def startPopup(self):
+        print(self.file)
         if self.topFrame != None:
             self.closePopup()
         self.started = True
@@ -135,7 +174,8 @@ class Window:
             label.image = tk_thumb
             label.pack()
             self.relocate()
-        except:
+        except Exception as e:
+            print(e)
             try:
                 video = VideoPlayer(self.topFrame, self.file)
             except Exception as e:
