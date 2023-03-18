@@ -34,7 +34,9 @@ def CheckActiveWindow():
                         window.rect = rect
                 except:
                     continue
-                if oldRect == None or oldRect[0] != window.rect[0] or oldRect[1] != window.rect[1]:
+                if (oldRect == None or oldRect[0] != window.rect[0] or oldRect[1] != window.rect[1]):
+                    if window.topFrame == None:
+                        window.startPopup()
                     window.relocate()
             if window.started and window.hidden:
                 oldRect = window.rect
