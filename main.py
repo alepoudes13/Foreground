@@ -49,9 +49,70 @@ def CheckActiveWindow():
             window.hidden = True
 
 class Window:
+    #INIT=======================================
+
     def ex(self):
         self.write()
         exit()
+
+    def openFile(self):
+        self.file = filedialog.askopenfilename(title='Select a file to display')
+
+    def __init__(self) -> None:
+        self.isDiscordActive = False
+        self.rect = None
+        self.topFrame = None
+        self.hidden = False
+        self.started = True
+        self.scaleMultiplier = 1
+        self.relx, self.rely = 0, 0
+        self.anchors = [1, 1]
+        
+        self.window = Tk()
+        self.window.title('-----')
+        self.window.config(background = "white")
+        self.window.protocol("WM_DELETE_WINDOW", self.ex)
+        self.button_explore = Button(self.window, text = "Browse Files", command = self.openFile)
+        self.button_explore.grid(column = 1, row = 1)  
+        self.button_start = Button(self.window, text = "Start", command = self.startPopupBase)
+        self.button_start.grid(column = 2, row = 1)
+        self.button_stop = Button(self.window, text = "Stop", command = self.closePopupBase)
+        self.button_stop.grid(column = 3, row = 1)  
+        self.button_exit = Button(self.window, text = "Exit program", command = self.ex)
+        self.button_exit.grid(column = 4, row = 1)
+
+        self.anchor_label = Label(self.window, text='Anchors', background = "white")
+        self.anchor_label.grid(columnspan = 4, row = 2, column = 1)
+
+        self.anchor_buttons = [None, None, None, None]
+        self.anchor_buttons[0] = Button(self.window, text = "NW", command = self.NW)
+        self.anchor_buttons[0].grid(column = 1, row = 3, sticky=E)  
+        self.anchor_buttons[1] = Button(self.window, text = "NE", command = self.NE)
+        self.anchor_buttons[1].grid(column = 2, row = 3)
+        self.anchor_buttons[2] = Button(self.window, text = "SW", command = self.SW)
+        self.anchor_buttons[2].grid(column = 3, row = 3)  
+        self.anchor_buttons[3] = Button(self.window, text = "SE", command = self.SE)
+        self.anchor_buttons[3].grid(column = 4, row = 3, sticky=W) 
+
+        self.scale_label = Label(self.window, text='Scale (%)', background = "white")
+        self.scale_label.grid(row = 4, column=1, columnspan=4) 
+        self.scale_slider = Scale(self.window, from_=100, to=0, orient=HORIZONTAL)
+        self.scale_slider.grid(row=5, column=1, columnspan=4) 
+        self.scale_slider.bind('<ButtonRelease>', self.resize)
+
+        try:
+            self.read()
+            self.started = True
+            self.scale_slider.set(int(self.scaleMultiplier * 100))
+            self.buttonState(self.anchors[0] + self.anchors[1] * 2)
+        except:
+            self.file = None
+            self.anchors = [1, 1]
+            self.relx, self.rely = 0, 0
+            self.scale_slider.set(100)
+            self.buttonState(3)
+
+    #CONFIG=======================================
 
     def write(self):
         try:
@@ -61,8 +122,8 @@ class Window:
         config.set('main', 'file', self.file)
         config.set('main', 'anchorX', str(self.anchors[0]))
         config.set('main', 'anchorY', str(self.anchors[1]))
-        config.set('main', 'relX', str(self.relx_slider.get()))
-        config.set('main', 'relY', str(self.rely_slider.get()))
+        config.set('main', 'relX', str(self.relx))
+        config.set('main', 'relY', str(self.rely))
         config.set('main', 'scale', str(self.scaleMultiplier))
 
         with open('config.ini', 'w') as f:
@@ -72,39 +133,25 @@ class Window:
         file = config.get('main', 'file')
         self.file = file
         self.anchors = [config.getint('main', 'anchorX'), config.getint('main', 'anchorY')]
-        self.relx_slider.set(config.getint('main', 'relX'))
-        self.rely_slider.set(config.getint('main', 'relY'))
+        self.relx = config.getfloat('main', 'relX')
+        self.rely = config.getfloat('main', 'relY')
         self.scaleMultiplier = config.getfloat('main', 'scale')
 
+    #TOP LEVEL CHANGES=======================================
+
     def relocate(self, event = None):
-        w = self.relx_slider.get() / 100
-        h = self.rely_slider.get() / 100
+        w = self.relx
+        h = self.rely
         x = self.rect[0] + (self.rect[2] - self.rect[0]) * (w if self.anchors[0] == 0 else 1 - w) - self.topFrame.winfo_width() * self.anchors[0]
         y = self.rect[1] + (self.rect[3] - self.rect[1]) * (h if self.anchors[1] == 0 else 1 - h) - self.topFrame.winfo_height() * self.anchors[1]
         self.topFrame.geometry("+%d+%d" %(x, y))
-    
-    def NW(self):
-        self.anchors = [0, 0]
-        self.relocate()
-
-    def NE(self):
-        self.anchors = [1, 0]
-        self.relocate()
-
-    def SW(self):
-        self.anchors = [0, 1]
-        self.relocate()
-
-    def SE(self):
-        self.anchors = [1, 1]
-        self.relocate()
 
     def resize(self, event = None):
         self.scaleMultiplier = self.scale_slider.get() / 100
         try:
             if self.file.split('.')[-1] == 'gif':
                 assert(0)
-            thumb = Image.open(self.file)
+            thumb = Image.open(self.file).convert("RGBA")
             w, h = int(thumb.width * self.scaleMultiplier), int(thumb.height * self.scaleMultiplier)
             thumb = thumb.resize((int(w), int(h)))
             tk_thumb = ImageTk.PhotoImage(thumb)
@@ -118,76 +165,62 @@ class Window:
                 for widget in self.topFrame.winfo_children():
                     widget.destroy()
                 video = VideoPlayer(self.topFrame, self.file, self.scaleMultiplier)
-            except Exception as e:
-                print(e)
+            except:
                 pass
         self.topFrame.update_idletasks()
         self.relocate()
 
-    def __init__(self) -> None:
-        self.isDiscordActive = False
-        self.rect = None
-        self.topFrame = None
-        self.hidden = False
-        self.started = True
-        self.scaleMultiplier = 1
-        
-        self.window = Tk()
-        self.window.title('-----')
-        self.window.config(background = "white")
-        self.window.protocol("WM_DELETE_WINDOW", self.ex)
-        self.button_explore = Button(self.window, text = "Browse Files", command = self.openFile)
-        self.button_explore.grid(column = 1, row = 1)  
-        self.button_start = Button(self.window, text = "Start", command = self.startPopupBase)
-        self.button_start.grid(column = 2, row = 1)
-        self.button_stop = Button(self.window, text = "Stop", command = self.closePopupBase)
-        self.button_stop.grid(column = 3, row = 1)  
-        self.button_exit = Button(self.window, text = "Exit program", command = self.ex)
-        self.button_exit.grid(column = 4, row = 1) 
+    def NW(self):
+        self.anchors = [0, 0]
+        self.relocate()
+        self.buttonState(0)
 
-        self.relx_label = Label(self.window, text='RelX (%)', background = "white") 
-        self.rely_label = Label(self.window, text='RelY (%)', background = "white")
-        self.relx_label.grid(row = 2, column=1, columnspan=2) 
-        self.rely_label.grid(row = 2, column=3, columnspan=2) 
-        self.relx_slider = Scale(self.window, from_=0, to=100, orient=HORIZONTAL)
-        self.relx_slider.grid(row=3, column=1, columnspan=2)
-        self.rely_slider = Scale(self.window, from_=0, to=100, orient=HORIZONTAL)
-        self.rely_slider.grid(row=3, column=3, columnspan=2)
-        self.relx_slider.bind('<ButtonRelease>', self.relocate)
-        self.rely_slider.bind('<ButtonRelease>', self.relocate)
+    def NE(self):
+        self.anchors = [1, 0]
+        self.relocate()
+        self.buttonState(1)
 
-        self.anchor_label = Label(self.window, text='Anchors', background = "white")
-        self.anchor_label.grid(columnspan = 4, row = 4, column = 1)
+    def SW(self):
+        self.anchors = [0, 1]
+        self.relocate()
+        self.buttonState(2)
 
-        self.button_NW = Button(self.window, text = "NW", command = self.NW)
-        self.button_NW.grid(column = 1, row = 5, sticky=E)  
-        self.button_NE = Button(self.window, text = "NE", command = self.NE)
-        self.button_NE.grid(column = 2, row = 5)
-        self.button_SW = Button(self.window, text = "SW", command = self.SW)
-        self.button_SW.grid(column = 3, row = 5)  
-        self.button_SE = Button(self.window, text = "SE", command = self.SE)
-        self.button_SE.grid(column = 4, row = 5, sticky=W) 
+    def SE(self):
+        self.anchors = [1, 1]
+        self.relocate()
+        self.buttonState(3)
 
-        self.scale_label = Label(self.window, text='Scale (%)', background = "white")
-        self.scale_label.grid(row = 1, column=5) 
-        self.scale_slider = Scale(self.window, from_=100, to=0, orient=VERTICAL)
-        self.scale_slider.grid(row=2, column=5, rowspan=4) 
-        self.scale_slider.bind('<ButtonRelease>', self.resize)
+    def buttonState(self, active: int):
+        for i in range(4):
+            if i == active:
+                self.anchor_buttons[i]['state'] = DISABLED
+            else:
+                self.anchor_buttons[i]['state'] = NORMAL
 
-        try:
-            self.read()
-            self.started = True
-            self.scale_slider.set(int(self.scaleMultiplier * 100))
-        except Exception as e:
-            print(e)
-            self.file = None
-            self.anchors = [1, 1]
-            self.relx_slider.set(0)
-            self.rely_slider.set(0)
-            self.scale_slider.set(100)
+    def start_move(self, event):
+        self.x = event.x
+        self.y = event.y
 
-    def openFile(self):
-        self.file = filedialog.askopenfilename(title='Select a file to display')
+    def stop_move(self, event):
+        self.x = None
+        self.y = None
+
+    def do_move(self, event):
+        deltax = event.x - self.x
+        deltay = event.y - self.y
+        x = self.topFrame.winfo_x() + deltax
+        y = self.topFrame.winfo_y() + deltay
+        if self.anchors[0] == 0:
+            self.relx = (x - self.rect[0]) / (self.rect[2] - self.rect[0])
+        else:
+            self.relx = (self.rect[2] - x - self.topFrame.winfo_width()) / (self.rect[2] - self.rect[0])
+        if self.anchors[1] == 0:
+            self.rely = (y - self.rect[1]) / (self.rect[3] - self.rect[1])
+        else:
+            self.rely = (self.rect[3] - y - self.topFrame.winfo_height()) / (self.rect[3] - self.rect[1])
+        self.topFrame.geometry(f"+{x}+{y}")
+
+    #TOP LEVEL=======================================
 
     def startPopup(self):
         if self.topFrame != None:
@@ -200,30 +233,24 @@ class Window:
         self.topFrame.attributes('-topmost', True)
         self.topFrame.overrideredirect(True)
         self.topFrame.update()
-        self.topFrame.bind('<FocusIn>', self.onPopupFocus)
+        self.topFrame.bind('<ButtonPress-1>', self.start_move)
+        self.topFrame.bind('<B1-Motion>', self.do_move)
+        self.topFrame.bind('<ButtonRelease-1>', self.stop_move)
 
         self.resize()
-
-    def onPopupFocus(self, event):
-        self.isDiscordActive = True
-        return "break"
-
-    def startPopupBase(self):
-        self.started = True
-        self.hidden = True
 
     def closePopup(self):
         if self.topFrame != None:
             self.topFrame.destroy()
             self.topFrame = None
 
+    def startPopupBase(self):
+        self.started = True
+        self.hidden = True
+
     def closePopupBase(self):
         self.started = False
         self.closePopup()
-
-    def changeTag(self):
-        self.topFrame = Toplevel(self.window)
-        self.topFrame.geometry("+%d+%d" %(self.window.winfo_x()+self.listFrame.winfo_width(),self.window.winfo_y()+self.button_explore.winfo_height() * 2))
 
 if __name__ == '__main__':
     window = Window()
